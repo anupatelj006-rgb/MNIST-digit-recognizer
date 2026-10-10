@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digit Recognizer</title>
+<style>
+  :root {
+    --bg: #f5f0e6; --card: #fffdf8; --ink: #17261a; --green: #2d6a3e;
+    --green-soft: #dfeed8; --sand: #e9dfc8; --muted: #6f6a5c; --line: #e6dfcf;
+    --danger: #a3361f;
+  }
+  * { box-sizing: border-box; }
+  html, body { overflow-x: hidden; }
+  body {
+    margin: 0; color: var(--ink); background-color: var(--bg);
+    background-image: radial-gradient(#cfc7b3 1px, transparent 1px);
+    background-size: 28px 28px;
+    font-family: Georgia, "Times New Roman", serif; line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 40px 24px 60px; }
+  h1 { font-size: 52px; margin: 0 0 22px; letter-spacing: -1px; }
+  h2 { font-size: 24px; margin: 0 0 18px; }
+  .notice { background: #fff3d6; border: 1px solid #e3c779; color: #6b4a00; border-radius: 16px; padding: 12px 18px; margin-bottom: 20px; }
+  .tabs { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 26px; }
+  .tab {
+    font: 600 18px Georgia, serif; padding: 12px 26px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer;
+  }
+  .tab.active { background: var(--green); color: #fff; border-color: var(--green); }
+  .tab:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid #86b88f; outline-offset: 2px; }
+  .badge { background: #ddd6c4; color: var(--ink); border-radius: 999px; padding: 0 9px; font-size: 14px; margin-left: 6px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 22px; }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 18px 22px; }
+  .stat small { color: var(--muted); font-size: 15px; }
+  .stat b { display: block; font-size: 32px; color: var(--green); margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 22px; }
+  .grid > * { min-width: 0; }
+  canvas { max-width: 100%; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 28px; padding: 28px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  #pad {
+    width: 100%; height: 280px; display: block; border: 3px solid var(--green);
+    border-radius: 22px; background: #fffef9; touch-action: none; cursor: crosshair;
+  }
+  .padwrap { position: relative; }
+  .hint {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 40px; color: #cfc6a8; pointer-events: none;
+  }
+  .row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+  button.btn {
+    font: 500 18px Georgia, serif; padding: 12px 26px; border-radius: 16px;
+    border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer;
+  }
+  button.btn:hover { background: #f4efe2; }
+  button.primary { background: var(--green); color: #fff; border-color: var(--green); }
+  button.primary:hover { background: #245832; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .big {
+    background: var(--green-soft); border-radius: 26px; height: 180px; display: flex;
+    align-items: center; justify-content: center; font-size: 120px; color: var(--green); font-style: italic;
+  }
+  .big.dash { font-size: 60px; font-style: normal; }
+  .bar { height: 14px; background: var(--sand); border-radius: 99px; overflow: hidden; margin-top: 22px; }
+  .bar > i { display: block; height: 100%; background: var(--green); width: 0; transition: width .25s; }
+  .confrow { display: flex; justify-content: space-between; color: var(--muted); margin: 10px 0 18px; font-size: 19px; }
+  .confrow b { color: var(--ink); }
+  .probs { display: grid; gap: 8px; }
+  .p { display: grid; grid-template-columns: 22px 1fr 48px; align-items: center; gap: 12px; color: var(--muted); }
+  .p .t { height: 12px; background: var(--sand); border-radius: 99px; overflow: hidden; }
+  .p .t i { display: block; height: 100%; background: #7fae88; width: 0; transition: width .25s; }
+  .p.top .t i { background: var(--green); }
+  .p.top { color: var(--ink); font-weight: 700; }
+  .p span:last-child { text-align: right; }
+  .msg { margin-top: 14px; color: var(--danger); min-height: 24px; }
+  .warn { color: #8a5a00; }
+  .drop {
+    border: 3px dashed #b8c9b4; border-radius: 22px; padding: 26px; text-align: center; color: var(--muted);
+    background: #fffef9; min-height: 280px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px;
+  }
+  .drop img { max-width: 100%; max-height: 220px; border-radius: 14px; }
+  input[type=text] {
+    font: 400 30px Georgia, serif; padding: 12px 18px; border-radius: 16px;
+    border: 2px solid var(--green); background: #fffef9; width: 100%; max-width: 360px;
+  }
+  .samples { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .sample { background: #fffef9; border: 1px solid var(--line); border-radius: 16px; padding: 10px; text-align: center; width: 100px; }
+  .sample img { width: 64px; height: 64px; image-rendering: pixelated; background: #000; border-radius: 8px; }
+  .sample b { display: block; font-size: 26px; color: var(--green); }
+  .sample small { color: var(--muted); }
+  .sample.bad b { color: var(--danger); }
+  .hist-item { display: flex; align-items: center; gap: 18px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+  .hist-item .d { font-size: 34px; color: var(--green); width: 44px; text-align: center; font-style: italic; }
+  .hist-item small { color: var(--muted); }
+  .empty { color: var(--muted); padding: 10px 0; }
+  @media (max-width: 820px) { h1 { font-size: 38px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Digit Recognizer</h1>
+
+  {% if not robust %}
+  <div class="notice">The blur-and-angle model is not trained yet, so blurry and tilted digits will be unreliable. In a terminal, run <b>python train_model.py</b>, then restart the app.</div>
+  {% endif %}
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="draw">Draw</button>
+    <button class="tab" data-tab="photo">Photo</button>
+    <button class="tab" data-tab="type">Type a number</button>
+    <button class="tab" data-tab="history">History <span class="badge" id="histBadge">0</span></button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><small>Saved</small><b id="sSaved">0</b></div>
+    <div class="stat"><small>Digits read</small><b id="sRead">0</b></div>
+    <div class="stat"><small>Avg confidence</small><b id="sAvg">—</b></div>
+    <div class="stat"><small>Last answer</small><b id="sLast">—</b></div>
+  </div>
+
+  <!-- DRAW -->
+  <div class="panel active" id="panel-draw">
+    <div class="grid">
+      <div class="card">
+        <h2>Draw</h2>
+        <div class="padwrap">
+          <canvas id="pad" width="700" height="360"></canvas>
+          <div class="hint" id="hint">Write here</div>
+        </div>
+        <div class="row">
+          <button class="btn" id="undo">Undo</button>
+          <button class="btn" id="clear">Clear</button>
+        </div>
+      </div>
+      <div class="card answer" data-for="draw">
+        <h2>Answer</h2>
+        <div class="big dash" data-big>–</div>
+        <div class="bar"><i data-bar></i></div>
+        <div class="confrow"><span>Confidence</span><b data-conf>–</b></div>
+        <div class="probs" data-probs></div>
+        <div class="msg" data-msg></div>
+        <div class="row"><button class="btn primary" data-save disabled>Save result</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHOTO -->
+  <div class="panel" id="panel-photo">
+    <div class="grid">
+      <div class="card">
+        <h2>Photo</h2>
+        <label class="drop" id="drop">
+          <div id="dropText">Choose a photo of one digit.<br>Blurry or tilted is fine.</div>
+          <img id="preview" alt="" hidden>
+          <input type="file" id="file" accept="image/*" hidden>
+          <span class="btn primary" style="padding:10px 22px;border-radius:16px;">Choose photo</span>
+        </label>
+      </div>
+      <div class="card answer" data-for="photo">
+        <h2>Answer</h2>
+        <div class="big dash" data-big>–</div>
+        <div class="bar"><i data-bar></i></div>
+        <div class="confrow"><span>Confidence</span><b data-conf>–</b></div>
+        <div class="probs" data-probs></div>
+        <div class="msg" data-msg></div>
+        <div class="row"><button class="btn primary" data-save disabled>Save result</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TYPE A NUMBER -->
+  <div class="panel" id="panel-type">
+    <div class="card">
+      <h2>Type a number</h2>
+      <p class="empty" style="margin-top:-8px">Type digits. The model reads a sample handwritten image of each one from the MNIST test set.</p>
+      <input type="text" id="typed" inputmode="numeric" maxlength="12" placeholder="e.g. 4072" autocomplete="off">
+      <div class="row"><button class="btn primary" id="readTyped">Read</button></div>
+      <div class="msg" id="typeMsg"></div>
+      <div class="samples" id="samples"></div>
+    </div>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="panel" id="panel-history">
+    <div class="card">
+      <h2>History</h2>
+      <div id="histList"></div>
+      <div class="row"><button class="btn" id="clearHist">Clear history</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const $ = (s, r = document) => r.querySelector(s);
+  const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  let digitsRead = 0;
+  const current = { draw: null, photo: null };   // last unsaved result per tab
+
+  /* ---------------- tabs ---------------- */
+  $$(".tab").forEach(t => t.addEventListener("click", () => {
+    $$(".tab").forEach(x => x.classList.toggle("active", x === t));
+    $$(".panel").forEach(p => p.classList.toggle("active", p.id === "panel-" + t.dataset.tab));
+    if (t.dataset.tab === "history") loadHistory();
+  }));
+
+  /* ---------------- answer card helpers ---------------- */
+  function card(name) { return $(`.answer[data-for="${name}"]`); }
+
+  function resetAnswer(name) {
+    const c = card(name);
+    const big = $("[data-big]", c);
+    big.textContent = "–"; big.classList.add("dash");
+    $("[data-bar]", c).style.width = "0";
+    $("[data-conf]", c).textContent = "–";
+    $("[data-probs]", c).innerHTML = "";
+    $("[data-msg]", c).textContent = "";
+    $("[data-save]", c).disabled = true;
+    current[name] = null;
+  }
+
+  function showAnswer(name, r) {
+    const c = card(name);
+    const big = $("[data-big]", c);
+    big.textContent = r.prediction; big.classList.remove("dash");
+    $("[data-bar]", c).style.width = r.confidence + "%";
+    $("[data-conf]", c).textContent = r.confidence + "%";
+    $("[data-probs]", c).innerHTML = r.probabilities.map((p, i) =>
+      `<div class="p ${i === r.prediction ? "top" : ""}"><span>${i}</span>
+        <div class="t"><i style="width:${p}%"></i></div><span>${Math.round(p)}%</span></div>`).join("");
+    const m = $("[data-msg]", c);
+    m.className = "msg warn";
+    m.textContent = r.low_confidence ? "Not sure. Try a clearer or larger digit." : "";
+    $("[data-save]", c).disabled = false;
+    current[name] = r;
+    $("#sLast").textContent = r.prediction;
+  }
+
+  function showError(name, text) {
+    resetAnswer(name);
+    const m = $("[data-msg]", card(name));
+    m.className = "msg"; m.textContent = text;
+  }
+
+  /* ---------------- save / history ---------------- */
+  $$("[data-save]").forEach(btn => btn.addEventListener("click", async () => {
+    const name = btn.closest(".answer").dataset.for;
+    const r = current[name];
+    if (!r) return;
+    btn.disabled = true;
+    await fetch("/save", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ digit: r.prediction, confidence: r.confidence, source: name }) });
+    $("[data-msg]", card(name)).className = "msg warn";
+    $("[data-msg]", card(name)).textContent = "Saved to History.";
+    loadHistory();
+  }));
+
+  async function loadHistory() {
+    let items = [];
+    try { items = await (await fetch("/history")).json(); } catch (e) {}
+    $("#histBadge").textContent = items.length;
+    $("#sSaved").textContent = items.length;
+    $("#sAvg").textContent = items.length
+      ? (items.reduce((a, b) => a + b.confidence, 0) / items.length).toFixed(1) + "%" : "—";
+    if (items.length && $("#sLast").textContent === "—") $("#sLast").textContent = items[0].digit;
+    $("#histList").innerHTML = items.length ? items.map(i =>
+      `<div class="hist-item"><div class="d">${i.digit}</div>
+        <div><b>${i.confidence}% confidence</b><br><small>${i.source} · ${i.time}</small></div></div>`).join("")
+      : `<div class="empty">Nothing saved yet. Read a digit, then choose Save result.</div>`;
+  }
+  $("#clearHist").addEventListener("click", async () => {
+    await fetch("/history/clear", { method: "POST" });
+    loadHistory();
+  });
+
+  /* ---------------- DRAW ---------------- */
+  const pad = $("#pad"), ctx = pad.getContext("2d");
+  let strokes = [], drawing = false, timer = null, reqId = 0;
+
+  function paint() {
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, pad.width, pad.height);
+    ctx.strokeStyle = "#17261a"; ctx.lineWidth = 22; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    strokes.forEach(s => {
+      ctx.beginPath();
+      s.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+      if (s.length === 1) ctx.lineTo(s[0].x + 0.1, s[0].y);
+      ctx.stroke();
+    });
+    $("#hint").style.display = strokes.length ? "none" : "flex";
+  }
+  function pos(e) {
+    const r = pad.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * pad.width / r.width, y: (e.clientY - r.top) * pad.height / r.height };
+  }
+  pad.addEventListener("pointerdown", e => {
+    pad.setPointerCapture(e.pointerId); drawing = true;
+    clearTimeout(timer);
+    strokes.push([pos(e)]); paint();
+  });
+  pad.addEventListener("pointermove", e => {
+    if (!drawing) return;
+    strokes[strokes.length - 1].push(pos(e)); paint();
+  });
+  const end = () => { if (!drawing) return; drawing = false; schedulePredict(); };
+  pad.addEventListener("pointerup", end);
+  pad.addEventListener("pointercancel", end);
+
+  function schedulePredict() {
+    clearTimeout(timer);
+    if (!strokes.length) { resetAnswer("draw"); return; }
+    timer = setTimeout(predictDrawing, 450);
+  }
+  async function predictDrawing() {
+    const id = ++reqId;
+    try {
+      const res = await fetch("/predict", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: pad.toDataURL("image/png") }) });
+      const data = await res.json();
+      if (id !== reqId) return;                     // a newer request exists
+      if (!res.ok) return showError("draw", data.error || "Prediction failed.");
+      showAnswer("draw", data); digitsRead++; $("#sRead").textContent = digitsRead;
+    } catch (e) { showError("draw", "Cannot reach the server. Is app.py running?"); }
+  }
+  $("#undo").addEventListener("click", () => { strokes.pop(); paint(); reqId++; schedulePredict(); });
+  $("#clear").addEventListener("click", () => { strokes = []; paint(); reqId++; clearTimeout(timer); resetAnswer("draw"); });
+  paint();
+
+  /* ---------------- PHOTO ---------------- */
+  $("#file").addEventListener("change", async e => {
+    const f = e.target.files[0];
+    resetAnswer("photo");                           // old answer disappears at once
+    if (!f) return;
+    const img = $("#preview");
+    img.src = URL.createObjectURL(f); img.hidden = false;
+    $("#dropText").textContent = "Reading…";
+    const fd = new FormData(); fd.append("image", f);
+    try {
+      const res = await fetch("/predict", { method: "POST", body: fd });
+      const data = await res.json();
+      $("#dropText").innerHTML = "Choose another photo to read a new digit.";
+      if (!res.ok) return showError("photo", data.error || "Prediction failed.");
+      showAnswer("photo", data); digitsRead++; $("#sRead").textContent = digitsRead;
+    } catch (err) {
+      $("#dropText").textContent = "Choose a photo of one digit.";
+      showError("photo", "Cannot reach the server. Is app.py running?");
+    }
+    e.target.value = "";                            // lets the same file be picked again
+  });
+
+  /* ---------------- TYPE A NUMBER ---------------- */
+  $("#typed").addEventListener("input", e => e.target.value = e.target.value.replace(/\D/g, ""));
+  $("#typed").addEventListener("keydown", e => { if (e.key === "Enter") $("#readTyped").click(); });
+  $("#readTyped").addEventListener("click", async () => {
+    $("#samples").innerHTML = ""; $("#typeMsg").textContent = "";
+    try {
+      const res = await fetch("/sample", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ digits: $("#typed").value }) });
+      const data = await res.json();
+      if (!res.ok) { $("#typeMsg").textContent = data.error; return; }
+      $("#samples").innerHTML = data.items.map(i =>
+        `<div class="sample ${i.prediction !== i.typed ? "bad" : ""}">
+          <img src="${i.image}" alt="sample of ${i.typed}">
+          <b>${i.prediction}</b><small>typed ${i.typed} · ${i.confidence}%</small></div>`).join("");
+      digitsRead += data.items.length; $("#sRead").textContent = digitsRead;
+      $("#sLast").textContent = data.items[data.items.length - 1].prediction;
+    } catch (e) { $("#typeMsg").textContent = "Cannot reach the server. Is app.py running?"; }
+  });
+
+  loadHistory();
+})();
+</script>
+</body>
+</html>
